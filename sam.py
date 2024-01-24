@@ -127,7 +127,7 @@ if __name__ == "__main__":
     print("Init large language model...")
     llm_init()
 
-    welcome = "Hi, I'm Samantha, your friendly AI Chatbot. Feel free to ask me a question."
+    welcome = "Hi, I'm Samantha, your friendly A.I. Chatbot. Feel free to ask me a question."
     text_to_speech(welcome)
     print(welcome)
     while True:
