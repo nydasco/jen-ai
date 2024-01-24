@@ -42,7 +42,13 @@ template = """
 """
 
 def llm_init():
-    """ Load large language model """
+    """ 
+    Initialize and load the large language model.
+    
+    This function initializes and loads the large language model. It sets up the necessary callback manager
+    and creates an instance of the LlamaCpp class. The model path, temperature, number of GPU layers, batch size,
+    callback manager, and verbosity can be customized as per the requirements.
+    """
     global llm, callback_manager
 
     callback_manager = CallbackManager([StreamingCustomCallbackHandler()])
@@ -56,7 +62,15 @@ def llm_init():
     )
 
 def asr_init():
-    """ Initialize the automatic speech recognition model """
+    """ Initialize the automatic speech recognition model.
+
+    This function initializes the automatic speech recognition model by setting the global variables
+    `asr_model_id` and `transcriber`. The `asr_model_id` is set to "openai/whisper-tiny.en" and the
+    `transcriber` is created using the `pipeline` function from the Hugging Face library.
+
+    Returns:
+        None
+    """
     global asr_model_id, transcriber
     asr_model_id = "openai/whisper-tiny.en"
     transcriber = pipeline("automatic-speech-recognition",
@@ -64,13 +78,26 @@ def asr_init():
                            device="cpu")
 
 def tts_init():
-    """ Initialize the automatic text to speech model """
+    """ Initialize the automatic text to speech model.
+
+    This function initializes the automatic text to speech model by setting the global variables
+    `tts_model_id` and `tts`. The `tts_model_id` is set to "tts_models/en/jenny/jenny" and the
+    `tts` variable is initialized with the TTS model using the specified `tts_model_id`.
+
+    """
     global tts_model_id, tts
     tts_model_id = "tts_models/en/jenny/jenny"
     tts = TTS(tts_model_id).to("cpu")
 
 def transcribe_mic(chunk_length_s: float) -> str:
-    """ Transcribe the audio from a microphone """
+    """ Transcribe the audio from a microphone.
+
+    Args:
+        chunk_length_s (float): The length of each audio chunk in seconds.
+
+    Returns:
+        str: The transcribed text from the microphone audio.
+    """
     global transcriber
     sampling_rate = transcriber.feature_extractor.sampling_rate
     mic = ffmpeg_microphone_live(
@@ -87,13 +114,30 @@ def transcribe_mic(chunk_length_s: float) -> str:
     return result.strip()
 
 def text_to_speech(text: str):
+    """
+    Converts the given text to speech and plays the audio.
+
+    Args:
+        text (str): The text to be converted to speech.
+
+    Returns:
+        None
+    """
     global tts
     audio = tts.tts_to_file(text=text, save_path="output.wav")
     sentence = AudioSegment.from_wav(audio)
     play(sentence)
 
 def llm_start(question: str):
-    """ Ask LLM a question """
+    """
+    Ask LLM a question.
+
+    Args:
+        question (str): The question to ask LLM.
+
+    Returns:
+        None
+    """
     global llm, template
 
     prompt = PromptTemplate(template=template, input_variables=["guide", "question"])
@@ -114,7 +158,14 @@ class StreamingCustomCallbackHandler(StreamingStdOutCallbackHandler):
         pass
 
     def on_llm_new_token(self, token: str, **kwargs: Any) -> None:
-        """ Run on new LLM token. Concatenate tokens and print when a sentence is complete."""
+        """Run on new LLM token. Concatenate tokens and print when a sentence is complete.
+
+        Args:
+            token (str): The new token to be processed.
+
+        Returns:
+            None
+        """
         if not hasattr(self, 'concatenated_tokens'):
             self.concatenated_tokens = ''
         self.concatenated_tokens += token
@@ -123,18 +174,12 @@ class StreamingCustomCallbackHandler(StreamingStdOutCallbackHandler):
             self.concatenated_tokens = ''
 
 def main():
-    print("Init automatic speech recogntion...")
     asr_init()
-
-    print("Init large language model...")
     llm_init()
-
-    print("Init text to speech...")
     tts_init()
 
-    welcome = "Hi, I'm Sam, your friendly A.I. Feel free to ask me a question."
+    welcome = "Hi! I'm Sam. Feel free to ask me a question."
     text_to_speech(welcome)
-    print(welcome)
     while True:
         question = transcribe_mic(chunk_length_s=5.0)
         if len(question) > 0:
