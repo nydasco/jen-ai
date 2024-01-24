@@ -9,3 +9,5 @@ To get this running, follow the below steps:
 4. Install dependencies: `pip3 install -r requirements.txt`
 5. Download the LLM (5.13G): `huggingface-cli download TheBloke/OpenHermes-2.5-Mistral-7B-GGUF openhermes-2.5-mistral-7b.Q5_K_M.gguf --local-dir . --local-dir-use-symlinks False`
 6. Run the file: `python3 sam.py`
+
+Note that the first time it runs it will take a while to get started. There are additional models that need to be downloaded. They're smaller than the main LLM.
