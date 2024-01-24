@@ -22,11 +22,20 @@ from langchain.schema.output_parser import StrOutputParser
 # Model initiations
 llm: Optional[LlamaCpp] = None
 callback_manager: Any = None
+asr_model_id: str = ""
+tts_model_id: str = ""
+transcriber: Any = None
+tts: Any = None
 
 llm_model_file = "openhermes-2.5-mistral-7b.Q5_K_M.gguf"
+guide = """
+    You are a smart chatbot named Samantha (or Sam for short).
+    You are an expert in Data Engineering and Analytics.
+    You are friendly, and you like to help people.
+"""
 template = """
     <|im_start|>system
-    You are a smart chatbot named Samantha (or Sam for short). You are an expert in Data Engineering and Analytics.<|im_end|>
+    {guide}<|im_end|>
     <|im_start|>user
     {question}<|im_end|>
     <|im_start|>assistant
@@ -78,17 +87,18 @@ def transcribe_mic(chunk_length_s: float) -> str:
     return result.strip()
 
 def text_to_speech(text: str):
-    tts.tts_to_file(text=text, save_path="output.wav")
-    sentence = AudioSegment.from_wav("output.wav")
+    global tts
+    audio = tts.tts_to_file(text=text, save_path="output.wav")
+    sentence = AudioSegment.from_wav(audio)
     play(sentence)
 
 def llm_start(question: str):
     """ Ask LLM a question """
     global llm, template
 
-    prompt = PromptTemplate(template=template, input_variables=["question"])
+    prompt = PromptTemplate(template=template, input_variables=["guide", "question"])
     chain = prompt | llm | StrOutputParser()
-    chain.invoke({"question": question}, config={})
+    chain.invoke({"guide": guide, "question": question}, config={})
 
 class StreamingCustomCallbackHandler(StreamingStdOutCallbackHandler):
     """ Callback handler for LLM streaming """
@@ -112,8 +122,7 @@ class StreamingCustomCallbackHandler(StreamingStdOutCallbackHandler):
             text_to_speech(self.concatenated_tokens)
             self.concatenated_tokens = ''
 
-
-if __name__ == "__main__":
+def main():
     print("Init automatic speech recogntion...")
     asr_init()
 
@@ -123,10 +132,13 @@ if __name__ == "__main__":
     print("Init text to speech...")
     tts_init()
 
-    welcome = "Hi, I'm Samantha, your friendly A.I. Chatbot. Feel free to ask me a question."
+    welcome = "Hi, I'm Sam, your friendly A.I. Feel free to ask me a question."
     text_to_speech(welcome)
     print(welcome)
     while True:
         question = transcribe_mic(chunk_length_s=5.0)
         if len(question) > 0:
             llm_start(question)
+
+if __name__ == "__main__":
+    main()
