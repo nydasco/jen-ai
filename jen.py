@@ -45,22 +45,23 @@ template = """
 # Model initiations
 llm: Optional[LlamaCpp] = None
 callback_manager: Any = None
-asr_model_id: str = ""
-tts_model_id: str = ""
 transcriber: Any = None
 tts: Any = None
 audio_queue = queue.Queue()
 mic_active = threading.Event()
 
-def llm_init():
+def init():
     """ 
-    Initialize and load the large language model.
+    Initialize the models.
     
     This function initializes and loads the large language model. It sets up the necessary callback manager
     and creates an instance of the LlamaCpp class. The model path, temperature, number of GPU layers, batch size,
     callback manager, and verbosity can be customized as per the requirements.
+
+    It then initiializes the speech recognition and text to speech model.
     """
-    global llm, callback_manager
+
+    global llm, callback_manager, transcriber, tts
 
     callback_manager = CallbackManager([StreamingCustomCallbackHandler()])
     llm = LlamaCpp(
@@ -72,34 +73,13 @@ def llm_init():
         verbose=False,
     )
 
-def asr_init():
-    """ 
-    Initialize the automatic speech recognition model.
-
-    This function initializes the automatic speech recognition model by setting the global variables
-    `asr_model_id` and `transcriber`. The `asr_model_id` is set to "openai/whisper-tiny.en" and the
-    `transcriber` is created using the `pipeline` function from the Hugging Face library.
-
-    Returns: None
-    """
-    global asr_model_id, transcriber
     transcriber = pipeline("automatic-speech-recognition",
                            model=asr_model_id,
                            device="cpu")
 
-def tts_init():
-    """ 
-    Initialize the automatic text to speech model.
-
-    This function initializes the automatic text to speech model by setting the global variables
-    `tts_model_id` and `tts`. The `tts_model_id` is set to "tts_models/en/jenny/jenny" and the
-    `tts` variable is initialized with the TTS model using the specified `tts_model_id`.
-
-    """
-    global tts_model_id, tts
     tts = TTS(tts_model_id).to("cpu")
 
-# Speech Recognition
+# Automated Speech Recognition
 def disable_mic():
     """Disable the microphone."""
     mic_active.clear()
@@ -195,9 +175,7 @@ class StreamingCustomCallbackHandler(StreamingStdOutCallbackHandler):
             self.concatenated_tokens = ''
 
 def main():
-    asr_init()
-    llm_init()
-    tts_init()
+    init()
     enable_mic()
 
     playback_thread = threading.Thread(target=play_audio, daemon=True)
