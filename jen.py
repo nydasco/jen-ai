@@ -23,12 +23,15 @@ from langchain.schema.output_parser import StrOutputParser
 
 
 # Configuration
-llm_model_file = "openhermes-2.5-mistral-7b.Q5_K_M.gguf"
+llm_model_file = "openhermes-2.5-mistral-7b.Q5_K_M.gguf" # need to be downloaded from HuggingFace
+asr_model_id = "openai/whisper-tiny.en" # will download on first run
+tts_model_id = "tts_models/en/jenny/jenny" # will download on first run
 
 guide = """
-    You are a smart chatbot named Samantha (or Sam for short).
+    You are a smart chatbot named Jenny (or Jen for short).
     You are an expert in Data Engineering and Analytics.
     You are friendly, and you like to help people.
+    Your responses should be helpful and informative, and limited to 1 paragraph.
 """
 
 template = """
@@ -80,7 +83,6 @@ def asr_init():
     Returns: None
     """
     global asr_model_id, transcriber
-    asr_model_id = "openai/whisper-tiny.en"
     transcriber = pipeline("automatic-speech-recognition",
                            model=asr_model_id,
                            device="cpu")
@@ -95,7 +97,6 @@ def tts_init():
 
     """
     global tts_model_id, tts
-    tts_model_id = "tts_models/en/jenny/jenny"
     tts = TTS(tts_model_id).to("cpu")
 
 # Speech Recognition
@@ -202,7 +203,7 @@ def main():
     playback_thread = threading.Thread(target=play_audio, daemon=True)
     playback_thread.start()
 
-    welcome = "Hi! I'm Sam. Feel free to ask me a question."
+    welcome = "Hi! I'm Jen. Feel free to ask me a question."
     print(welcome)
     while True:
         question = transcribe_mic(chunk_length_s=5.0)
