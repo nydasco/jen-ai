@@ -11,9 +11,11 @@ from transformers.pipelines.audio_utils import ffmpeg_microphone_live
 from TTS.api import TTS
 from pydub import AudioSegment
 from pydub.playback import play
+import threading
+import queue
 
 # large language model
-from langchain.llms import LlamaCpp
+from langchain_community.llms import LlamaCpp
 from langchain.callbacks.manager import CallbackManager
 from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 from langchain.prompts import PromptTemplate
@@ -40,6 +42,7 @@ template = """
     {question}<|im_end|>
     <|im_start|>assistant
 """
+audio_queue = queue.Queue()
 
 def llm_init():
     """ 
@@ -87,6 +90,7 @@ def tts_init():
     """
     global tts_model_id, tts
     tts_model_id = "tts_models/en/jenny/jenny"
+    #tts_model_id = "tts_models/en/sam/tacotron-DDC"
     tts = TTS(tts_model_id).to("cpu")
 
 def transcribe_mic(chunk_length_s: float) -> str:
@@ -113,6 +117,13 @@ def transcribe_mic(chunk_length_s: float) -> str:
             break
     return result.strip()
 
+def play_audio():
+    """Playback thread that plays audio segments from the queue."""
+    while True:
+        audio_segment = audio_queue.get()
+        play(audio_segment)
+        audio_queue.task_done()
+
 def text_to_speech(text: str):
     """
     Converts the given text to speech and plays the audio.
@@ -124,9 +135,15 @@ def text_to_speech(text: str):
         None
     """
     global tts
-    audio = tts.tts_to_file(text=text, save_path="output.wav")
+    audio = tts.tts_to_file(text=text, 
+                            return_audio=True, 
+                            split_sentences=False)
+    
     sentence = AudioSegment.from_wav(audio)
-    play(sentence)
+    audio_queue.put(sentence) 
+
+playback_thread = threading.Thread(target=play_audio, daemon=True)
+playback_thread.start()
 
 def llm_start(question: str):
     """
@@ -139,6 +156,10 @@ def llm_start(question: str):
         None
     """
     global llm, template
+
+    if not question.strip():  # Checks if the question is not just whitespace
+        print("\nNo valid question received. LLM will not be invoked.\n")
+        return
 
     prompt = PromptTemplate(template=template, input_variables=["guide", "question"])
     chain = prompt | llm | StrOutputParser()
@@ -179,10 +200,11 @@ def main():
     tts_init()
 
     welcome = "Hi! I'm Sam. Feel free to ask me a question."
-    text_to_speech(welcome)
+    #text_to_speech(welcome)
     while True:
         question = transcribe_mic(chunk_length_s=5.0)
         if len(question) > 0:
+            print(f"\n{question}\n")
             llm_start(question)
 
 if __name__ == "__main__":
