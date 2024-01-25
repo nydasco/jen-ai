@@ -21,15 +21,6 @@ from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 from langchain.prompts import PromptTemplate
 from langchain.schema.output_parser import StrOutputParser
 
-# Model initiations
-llm: Optional[LlamaCpp] = None
-callback_manager: Any = None
-asr_model_id: str = ""
-tts_model_id: str = ""
-transcriber: Any = None
-tts: Any = None
-audio_queue = queue.Queue()
-mic_active = threading.Event()
 
 # Configuration
 llm_model_file = "openhermes-2.5-mistral-7b.Q5_K_M.gguf"
@@ -47,6 +38,16 @@ template = """
     {question}<|im_end|>
     <|im_start|>assistant
 """
+
+# Model initiations
+llm: Optional[LlamaCpp] = None
+callback_manager: Any = None
+asr_model_id: str = ""
+tts_model_id: str = ""
+transcriber: Any = None
+tts: Any = None
+audio_queue = queue.Queue()
+mic_active = threading.Event()
 
 def llm_init():
     """ 
@@ -206,6 +207,7 @@ def main():
         if len(question) > 0:
             print(f"\n{question}\n")
             llm_start(question)
+            print(f"\nCan I help with anything else?\n")
 
 if __name__ == "__main__":
     main()
