@@ -98,7 +98,7 @@ def tts_init():
     tts_model_id = "tts_models/en/jenny/jenny"
     tts = TTS(tts_model_id).to("cpu")
 
-
+# Speech Recognition
 def disable_mic():
     """Disable the microphone."""
     mic_active.clear()
@@ -132,6 +132,7 @@ def transcribe_mic(chunk_length_s: float) -> str:
             break
     return result.strip()
 
+# Text to Speech
 def play_audio():
     """
     Playback thread that plays audio segments from the queue.
@@ -159,6 +160,7 @@ def text_to_speech(text: str):
     sentence = AudioSegment.from_wav(audio)
     audio_queue.put(sentence) 
 
+# Large Language Model
 def llm_start(question: str):
     """
     Ask LLM a question.
