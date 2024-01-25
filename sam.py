@@ -2,6 +2,8 @@
 
 # general
 from typing import Any, Dict, List, Optional
+import threading
+import queue
 
 # speech recognition
 from transformers import pipeline
@@ -11,8 +13,6 @@ from transformers.pipelines.audio_utils import ffmpeg_microphone_live
 from TTS.api import TTS
 from pydub import AudioSegment
 from pydub.playback import play
-import threading
-import queue
 
 # large language model
 from langchain_community.llms import LlamaCpp
@@ -28,13 +28,18 @@ asr_model_id: str = ""
 tts_model_id: str = ""
 transcriber: Any = None
 tts: Any = None
+audio_queue = queue.Queue()
+mic_active = threading.Event()
 
+# Configuration
 llm_model_file = "openhermes-2.5-mistral-7b.Q5_K_M.gguf"
+
 guide = """
     You are a smart chatbot named Samantha (or Sam for short).
     You are an expert in Data Engineering and Analytics.
     You are friendly, and you like to help people.
 """
+
 template = """
     <|im_start|>system
     {guide}<|im_end|>
@@ -42,7 +47,6 @@ template = """
     {question}<|im_end|>
     <|im_start|>assistant
 """
-audio_queue = queue.Queue()
 
 def llm_init():
     """ 
@@ -65,14 +69,14 @@ def llm_init():
     )
 
 def asr_init():
-    """ Initialize the automatic speech recognition model.
+    """ 
+    Initialize the automatic speech recognition model.
 
     This function initializes the automatic speech recognition model by setting the global variables
     `asr_model_id` and `transcriber`. The `asr_model_id` is set to "openai/whisper-tiny.en" and the
     `transcriber` is created using the `pipeline` function from the Hugging Face library.
 
-    Returns:
-        None
+    Returns: None
     """
     global asr_model_id, transcriber
     asr_model_id = "openai/whisper-tiny.en"
@@ -81,7 +85,8 @@ def asr_init():
                            device="cpu")
 
 def tts_init():
-    """ Initialize the automatic text to speech model.
+    """ 
+    Initialize the automatic text to speech model.
 
     This function initializes the automatic text to speech model by setting the global variables
     `tts_model_id` and `tts`. The `tts_model_id` is set to "tts_models/en/jenny/jenny" and the
@@ -90,19 +95,28 @@ def tts_init():
     """
     global tts_model_id, tts
     tts_model_id = "tts_models/en/jenny/jenny"
-    #tts_model_id = "tts_models/en/sam/tacotron-DDC"
     tts = TTS(tts_model_id).to("cpu")
 
+
+def disable_mic():
+    """Disable the microphone."""
+    mic_active.clear()
+
+def enable_mic():
+    """Enable the microphone."""
+    mic_active.set()
+
 def transcribe_mic(chunk_length_s: float) -> str:
-    """ Transcribe the audio from a microphone.
+    """ 
+    Transcribe the audio from a microphone.
 
-    Args:
-        chunk_length_s (float): The length of each audio chunk in seconds.
-
-    Returns:
-        str: The transcribed text from the microphone audio.
+    Args: chunk_length_s (float): The length of each audio chunk in seconds.
+    Returns: str: The transcribed text from the microphone audio.
     """
     global transcriber
+    while not mic_active.is_set():
+        pass
+
     sampling_rate = transcriber.feature_extractor.sampling_rate
     mic = ffmpeg_microphone_live(
             sampling_rate=sampling_rate,
@@ -118,21 +132,23 @@ def transcribe_mic(chunk_length_s: float) -> str:
     return result.strip()
 
 def play_audio():
-    """Playback thread that plays audio segments from the queue."""
+    """
+    Playback thread that plays audio segments from the queue.
+    Args: None
+    Returns: None
+    """
     while True:
         audio_segment = audio_queue.get()
+        disable_mic()
         play(audio_segment)
         audio_queue.task_done()
+        enable_mic()
 
 def text_to_speech(text: str):
     """
     Converts the given text to speech and plays the audio.
-
-    Args:
-        text (str): The text to be converted to speech.
-
-    Returns:
-        None
+    Args: text (str): The text to be converted to speech.
+    Returns: None
     """
     global tts
     audio = tts.tts_to_file(text=text, 
@@ -142,18 +158,11 @@ def text_to_speech(text: str):
     sentence = AudioSegment.from_wav(audio)
     audio_queue.put(sentence) 
 
-playback_thread = threading.Thread(target=play_audio, daemon=True)
-playback_thread.start()
-
 def llm_start(question: str):
     """
     Ask LLM a question.
-
-    Args:
-        question (str): The question to ask LLM.
-
-    Returns:
-        None
+    Args: question (str): The question to ask LLM.
+    Returns: None
     """
     global llm, template
 
@@ -168,24 +177,11 @@ def llm_start(question: str):
 class StreamingCustomCallbackHandler(StreamingStdOutCallbackHandler):
     """ Callback handler for LLM streaming """
 
-    def on_llm_start(
-        self, serialized: Dict[str, Any], prompts: List[str], **kwargs: Any
-    ) -> None:
-        """ Run when LLM starts running """
-        pass
-
-    def on_llm_end(self, response: Any, **kwargs: Any) -> None:
-        """ Run when LLM ends running """
-        pass
-
     def on_llm_new_token(self, token: str, **kwargs: Any) -> None:
-        """Run on new LLM token. Concatenate tokens and print when a sentence is complete.
-
-        Args:
-            token (str): The new token to be processed.
-
-        Returns:
-            None
+        """
+        Run on new LLM token. Concatenate tokens and print when a sentence is complete.
+        Args: token (str): The new token to be processed.
+        Returns: None
         """
         if not hasattr(self, 'concatenated_tokens'):
             self.concatenated_tokens = ''
@@ -198,9 +194,13 @@ def main():
     asr_init()
     llm_init()
     tts_init()
+    enable_mic()
+
+    playback_thread = threading.Thread(target=play_audio, daemon=True)
+    playback_thread.start()
 
     welcome = "Hi! I'm Sam. Feel free to ask me a question."
-    #text_to_speech(welcome)
+    print(welcome)
     while True:
         question = transcribe_mic(chunk_length_s=5.0)
         if len(question) > 0:
