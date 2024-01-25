@@ -1,7 +1,5 @@
 This is a very simple demo of a speech-to-text and then text-to-speech AI.
 
-At this stage there is no async, so there is an unacceptable pause between sentences.
-
 To get this running, follow the below steps:
 1. Clone this repo: `git clone https://github.com/nydasco/sam-ai.git`
 2. Within the folder, create a virtual environment: `python3 -m venv .venv`
