@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 # general
-from typing import Any, Optional
+from typing import Any, Dict, List, Optional
 import threading
 import queue
 import torch
@@ -66,6 +66,7 @@ def init():
     global llm, callback_manager, transcriber, tts
 
     callback_manager = CallbackManager([CustomCallbackHandler()])
+
     llm = LlamaCpp(model_path=llm_model_file,
                    temperature=0.1,
                    n_gpu_layers=0,
@@ -88,11 +89,11 @@ def enable_mic():
     """Enable the microphone."""
     mic_active.set()
 
-def transcribe_mic(chunk_in_secs: float) -> str:
+def transcribe_mic(chunk_length_s: float) -> str:
     """ 
     Transcribe the audio from a microphone.
 
-    Args: chunk_in_secs (float): The length of each audio chunk in seconds.
+    Args: chunk_length_s (float): The length of each audio chunk in seconds.
     Returns: str: The transcribed text from the microphone audio.
     """
     global transcriber
@@ -101,8 +102,8 @@ def transcribe_mic(chunk_in_secs: float) -> str:
 
     sampling_rate = transcriber.feature_extractor.sampling_rate
     mic = ffmpeg_microphone_live(sampling_rate=sampling_rate,
-                                 chunk_length_s=chunk_in_secs,
-                                 stream_chunk_s=chunk_in_secs)
+                                 chunk_length_s=chunk_length_s,
+                                 stream_chunk_s=chunk_length_s)
     
     result = ""
     for item in transcriber(mic):
@@ -157,20 +158,19 @@ def llm_start(question: str):
     
     chain = prompt | llm | StrOutputParser()
 
-    chain.invoke({"guide": guide, 
-                  "question": question}, 
-                  config={})
+    chain.invoke({"guide": guide, "question": question}, config={})
 
 class CustomCallbackHandler(StreamingStdOutCallbackHandler):
     """ Callback handler for LLM """
 
-    def on_new_token(self, token: str) -> None:
+    def on_llm_new_token(self, token: str, **kwargs: Any) -> None:
         """
         Run on new LLM token. Concatenate tokens and print when a sentence is complete.
         Args: token (str): The new token to be processed.
         Returns: None
         """
         self.concatenated_tokens = getattr(self, 'concatenated_tokens', '') + token
+
         if '.' in token:
             text_to_speech(self.concatenated_tokens)
             self.concatenated_tokens = ''
@@ -184,8 +184,9 @@ def main():
 
     welcome = "Hi! I'm Jen. Feel free to ask me a question."
     print(welcome)
+    
     while True:
-        question = transcribe_mic(chunk_in_secs=5.0)
+        question = transcribe_mic(chunk_length_s=5.0)
         if len(question) > 0:
             print(f"\n{question}\n")
             llm_start(question)
