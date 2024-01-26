@@ -4,6 +4,7 @@
 from typing import Any, Dict, List, Optional
 import threading
 import queue
+import torch
 
 # speech recognition
 from transformers import pipeline
@@ -49,6 +50,7 @@ transcriber: Any = None
 tts: Any = None
 audio_queue = queue.Queue()
 mic_active = threading.Event()
+device = "cuda" if torch.cuda.is_available() else "cpu"
 
 def init():
     """ 
@@ -63,7 +65,7 @@ def init():
 
     global llm, callback_manager, transcriber, tts
 
-    callback_manager = CallbackManager([StreamingCustomCallbackHandler()])
+    callback_manager = CallbackManager([CustomCallbackHandler()])
     llm = LlamaCpp(
         model_path=llm_model_file,
         temperature=0.1,
@@ -75,9 +77,9 @@ def init():
 
     transcriber = pipeline("automatic-speech-recognition",
                            model=asr_model_id,
-                           device="cpu")
+                           device=device)
 
-    tts = TTS(tts_model_id).to("cpu")
+    tts = TTS(tts_model_id).to(device)
 
 # Automated Speech Recognition
 def disable_mic():
@@ -158,18 +160,16 @@ def llm_start(question: str):
     chain = prompt | llm | StrOutputParser()
     chain.invoke({"guide": guide, "question": question}, config={})
 
-class StreamingCustomCallbackHandler(StreamingStdOutCallbackHandler):
-    """ Callback handler for LLM streaming """
+class CustomCallbackHandler(StreamingStdOutCallbackHandler):
+    """ Callback handler for LLM """
 
-    def on_llm_new_token(self, token: str, **kwargs: Any) -> None:
+    def on_new_token(self, token: str, **kwargs: Any) -> None:
         """
         Run on new LLM token. Concatenate tokens and print when a sentence is complete.
         Args: token (str): The new token to be processed.
         Returns: None
         """
-        if not hasattr(self, 'concatenated_tokens'):
-            self.concatenated_tokens = ''
-        self.concatenated_tokens += token
+        self.concatenated_tokens = getattr(self, 'concatenated_tokens', '') + token
         if '.' in token:
             text_to_speech(self.concatenated_tokens)
             self.concatenated_tokens = ''
