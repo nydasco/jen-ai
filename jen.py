@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 # general
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 import threading
 import queue
 import torch
@@ -66,14 +66,12 @@ def init():
     global llm, callback_manager, transcriber, tts
 
     callback_manager = CallbackManager([CustomCallbackHandler()])
-    llm = LlamaCpp(
-        model_path=llm_model_file,
-        temperature=0.1,
-        n_gpu_layers=0,
-        n_batch=256,
-        callback_manager=callback_manager,
-        verbose=False,
-    )
+    llm = LlamaCpp(model_path=llm_model_file,
+                   temperature=0.1,
+                   n_gpu_layers=0,
+                   n_batch=256,
+                   callback_manager=callback_manager,
+                   verbose=False)
 
     transcriber = pipeline("automatic-speech-recognition",
                            model=asr_model_id,
@@ -102,11 +100,9 @@ def transcribe_mic(chunk_in_secs: float) -> str:
         pass
 
     sampling_rate = transcriber.feature_extractor.sampling_rate
-    mic = ffmpeg_microphone_live(
-            sampling_rate=sampling_rate,
-            chunk_in_secs=chunk_in_secs,
-            stream_chunk_s=chunk_in_secs,
-        )
+    mic = ffmpeg_microphone_live(sampling_rate=sampling_rate,
+                                 chunk_in_secs=chunk_in_secs,
+                                 stream_chunk_s=chunk_in_secs)
     
     result = ""
     for item in transcriber(mic):
@@ -156,9 +152,14 @@ def llm_start(question: str):
         print("\nNo valid question received. LLM will not be invoked.\n")
         return
 
-    prompt = PromptTemplate(template=template, input_variables=["guide", "question"])
+    prompt = PromptTemplate(template=template, 
+                            input_variables=["guide", "question"])
+    
     chain = prompt | llm | StrOutputParser()
-    chain.invoke({"guide": guide, "question": question}, config={})
+    
+    chain.invoke({"guide": guide, 
+                  "question": question}, 
+                  config={})
 
 class CustomCallbackHandler(StreamingStdOutCallbackHandler):
     """ Callback handler for LLM """
