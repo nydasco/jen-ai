@@ -90,11 +90,11 @@ def enable_mic():
     """Enable the microphone."""
     mic_active.set()
 
-def transcribe_mic(chunk_length_s: float) -> str:
+def transcribe_mic(chunk_in_secs: float) -> str:
     """ 
     Transcribe the audio from a microphone.
 
-    Args: chunk_length_s (float): The length of each audio chunk in seconds.
+    Args: chunk_in_secs (float): The length of each audio chunk in seconds.
     Returns: str: The transcribed text from the microphone audio.
     """
     global transcriber
@@ -104,8 +104,8 @@ def transcribe_mic(chunk_length_s: float) -> str:
     sampling_rate = transcriber.feature_extractor.sampling_rate
     mic = ffmpeg_microphone_live(
             sampling_rate=sampling_rate,
-            chunk_length_s=chunk_length_s,
-            stream_chunk_s=chunk_length_s,
+            chunk_in_secs=chunk_in_secs,
+            stream_chunk_s=chunk_in_secs,
         )
     
     result = ""
@@ -163,7 +163,7 @@ def llm_start(question: str):
 class CustomCallbackHandler(StreamingStdOutCallbackHandler):
     """ Callback handler for LLM """
 
-    def on_new_token(self, token: str, **kwargs: Any) -> None:
+    def on_new_token(self, token: str) -> None:
         """
         Run on new LLM token. Concatenate tokens and print when a sentence is complete.
         Args: token (str): The new token to be processed.
@@ -184,7 +184,7 @@ def main():
     welcome = "Hi! I'm Jen. Feel free to ask me a question."
     print(welcome)
     while True:
-        question = transcribe_mic(chunk_length_s=5.0)
+        question = transcribe_mic(chunk_in_secs=5.0)
         if len(question) > 0:
             print(f"\n{question}\n")
             llm_start(question)
