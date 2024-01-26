@@ -101,7 +101,7 @@ def transcribe_mic(chunk_in_secs: float) -> str:
 
     sampling_rate = transcriber.feature_extractor.sampling_rate
     mic = ffmpeg_microphone_live(sampling_rate=sampling_rate,
-                                 chunk_in_secs=chunk_in_secs,
+                                 chunk_length_s=chunk_in_secs,
                                  stream_chunk_s=chunk_in_secs)
     
     result = ""
@@ -156,7 +156,7 @@ def llm_start(question: str):
                             input_variables=["guide", "question"])
     
     chain = prompt | llm | StrOutputParser()
-    
+
     chain.invoke({"guide": guide, 
                   "question": question}, 
                   config={})
