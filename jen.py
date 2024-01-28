@@ -60,7 +60,7 @@ def init():
     and creates an instance of the LlamaCpp class. The model path, temperature, number of GPU layers, batch size,
     callback manager, and verbosity can be customized as per the requirements.
 
-    It then initiializes the speech recognition and text to speech model.
+    It then initializes the speech recognition and text to speech model.
     """
 
     global llm, callback_manager, transcriber, tts
